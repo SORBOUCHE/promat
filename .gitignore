@@ -1,0 +1,23 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.tmp
+*.tmp.*
+
+# Tool caches
+.ruff_cache/
+.pytest_cache/
+
+# Environment and secrets
+.env
+.env.local
+*.log
+
+# Editor settings
+.vscode/
+.idea/
+
+# OS artifacts
+Thumbs.db
+Desktop.ini
