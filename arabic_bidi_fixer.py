@@ -5,10 +5,14 @@
 النصوص المقلوبة، والحروف المقطعة في بيئات LTR وAntigravity.
 """
 
+import os
 import re
+import subprocess
+import sys
 import threading
 import time
 import tkinter as tk
+from pathlib import Path
 from tkinter import messagebox, ttk
 
 # محارف التوجيه والتحكم في خوارزمية اليونيكود (Unicode BiDi Formatting Marks)
@@ -152,7 +156,7 @@ class ArabicBidiFixerApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("مصحح الخط العربي في أنتي جرافيتي (Antigravity Arabic BiDi Fixer)")
-        self.geometry("1120x720")
+        self.geometry("1140x720")
         self.minsize(920, 560)
         self.configure(bg=BG_LIGHT)
 
@@ -163,6 +167,44 @@ class ArabicBidiFixerApp(tk.Tk):
 
         self.setup_ui()
         self.update_font()
+
+        # تفعيل المراقبة التلقائية للحافظة فور تشغيل البرنامج
+        self.after(400, self.toggle_clip_monitor)
+
+    @property
+    def startup_file_path(self):
+        appdata = os.environ.get("APPDATA", "")
+        if appdata:
+            return Path(appdata) / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup" / "AntigravityArabicBiDiFixer.bat"
+        return None
+
+    def is_startup_enabled(self):
+        p = self.startup_file_path
+        return p is not None and p.exists()
+
+    def toggle_windows_startup(self):
+        p = self.startup_file_path
+        if not p:
+            return
+        if self.startup_var.get():
+            try:
+                script_path = Path(__file__).resolve()
+                pythonw = Path(sys.executable).parent / "pythonw.exe"
+                if not pythonw.exists():
+                    pythonw = Path(sys.executable)
+                cmd = f'@echo off\nstart "" "{pythonw}" "{script_path}"\n'
+                p.write_text(cmd, encoding="utf-8")
+                self.show_toast("✓ تم تفعيل التشغيل التلقائي مع إقلاع ويندوز")
+            except Exception as e:
+                messagebox.showerror("خطأ", f"تعذر إضافة التشغيل التلقائي: {e}", parent=self)
+                self.startup_var.set(False)
+        else:
+            try:
+                if p.exists():
+                    p.unlink()
+                self.show_toast("تم إلغاء التشغيل التلقائي مع ويندوز")
+            except Exception:
+                pass
 
     def setup_ui(self):
         # 1. شريط الرأس (Header Bar)
@@ -189,14 +231,21 @@ class ArabicBidiFixerApp(tk.Tk):
                   font=("Segoe UI", 9, "bold"), padx=8, pady=2, cursor="hand2",
                   command=self.decrease_font).pack(side="left", padx=2)
 
-        # ميزة مراقبة الحافظة التلقائية
-        self.clip_var = tk.BooleanVar(value=False)
+        # ميزة مراقبة الحافظة التلقائية (مفعلة افتراضياً)
+        self.clip_var = tk.BooleanVar(value=True)
         self.clip_chk = tk.Checkbutton(head, text="⚡ تصحيح تلقائي عند النسخ (Live Clipboard)",
                                        variable=self.clip_var, bg=BG_DARK, fg="#7dd3fc",
                                        activebackground=BG_DARK, activeforeground="white",
                                        selectcolor=BG_CARD, font=("Segoe UI", 9, "bold"),
                                        cursor="hand2", command=self.toggle_clip_monitor)
-        self.clip_chk.pack(side="left", padx=16)
+        self.clip_chk.pack(side="left", padx=12)
+
+        # خيار التشغيل التلقائي مع ويندوز
+        self.startup_var = tk.BooleanVar(value=self.is_startup_enabled())
+        tk.Checkbutton(head, text="🚀 تشغيل مع ويندوز", variable=self.startup_var,
+                       bg=BG_DARK, fg="#cbd5e1", activebackground=BG_DARK, activeforeground="white",
+                       selectcolor=BG_CARD, font=("Segoe UI", 9), cursor="hand2",
+                       command=self.toggle_windows_startup).pack(side="left", padx=6)
 
         # 2. شريط أدوات العمليات السريعة (Action Toolbar)
         tools_bar = tk.Frame(self, bg="white", padx=14, pady=8, highlightbackground=BORDER_COLOR, highlightthickness=1)
