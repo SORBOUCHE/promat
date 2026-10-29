@@ -324,10 +324,6 @@ class App(tk.Tk):
                   font=("Segoe UI", 10, "bold"), padx=14, pady=5, cursor="hand2",
                   command=self.open_new_dialog).pack(side="left", padx=4)
 
-        tk.Button(top_bar, text="🔤 مصحح الخط العربي", bg="#0284c7", fg="white", relief="flat",
-                  font=("Segoe UI", 9, "bold"), padx=12, pady=5, cursor="hand2",
-                  command=self.open_arabic_fixer).pack(side="left", padx=4)
-
         tk.Button(top_bar, text="⟳ تحديث المكتبة", bg="#f1f5f9", fg=TEXT_MAIN, relief="flat",
                   font=("Segoe UI", 9, "bold"), padx=12, pady=5, cursor="hand2",
                   command=self.manual_update).pack(side="left", padx=4)
@@ -914,15 +910,6 @@ class App(tk.Tk):
             self.load_prompt_details(new_item)
 
         EnhanceDialog(self, self.current_prompt, _on_save_new)
-
-    def open_arabic_fixer(self):
-        fixer_script = BASE / "arabic_bidi_fixer.py"
-        pythonw = Path(sys.executable).parent / "pythonw.exe"
-        if not pythonw.exists():
-            pythonw = Path(sys.executable)
-        import subprocess
-        subprocess.Popen([str(pythonw), str(fixer_script)])
-        self.show_status("تم تشغيل مصحح الخط العربي في الخلفية ⚡")
 
     def show_status(self, text, busy=False):
         def _apply():

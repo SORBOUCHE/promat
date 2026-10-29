@@ -16,8 +16,6 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-from arabic_bidi_fixer import fix_antigravity_bidi
-
 BASE = Path(__file__).parent
 CSV_PATH = BASE / "prompts.csv"
 STORE_PATH = BASE / "prompts.json"
@@ -504,7 +502,7 @@ def translate_to_arabic(text: str, timeout: int = 8) -> str:
             # في حال عدم وجود اتصال أو حدوث خطأ
             return f"[تعذرت الترجمة الآلية: تأكد من الاتصال بالإنترنت ({type(e).__name__})]\n\nالنص الأصلي:\n{text}"
 
-    final_translation = fix_antigravity_bidi("\n\n".join(translated_chunks))
+    final_translation = "\n\n".join(translated_chunks)
     _TRANSLATION_CACHE[text] = final_translation
     return final_translation
 
@@ -668,7 +666,7 @@ def explain_prompt_arabic(p: dict, headline: str | None = None) -> str:
     else:
         lines.append("- ضع هذا البرومبت في رسالة System أو كأول رسالة، ثم أرفق سياق طلبك المحدد مباشرة.")
 
-    return fix_antigravity_bidi("\n".join(lines))
+    return "\n".join(lines)
 
 
 # ==============================================================================
