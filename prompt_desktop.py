@@ -7,12 +7,14 @@ Promat Desktop Application
 import threading
 import time
 import tkinter as tk
+import webbrowser
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
 import prompts_core as pc
 
 BASE = Path(__file__).parent
+ICON_PATH = BASE / "app_icon.ico"
 APP_BG = "#0f172a"          # Slate 900
 APP_BG2 = "#1e293b"         # Slate 800
 APP_BG_HOVER = "#334155"    # Slate 700
@@ -238,6 +240,13 @@ class App(tk.Tk):
         self.minsize(1020, 620)
         self.configure(bg=LIGHT_BG)
 
+        # ضبط أيقونة التطبيق
+        if ICON_PATH.exists():
+            try:
+                self.iconbitmap(default=str(ICON_PATH))
+            except Exception:
+                pass
+
         # تحميل البيانات
         self.store = pc.load_store()
         self.view_mode = "all"
@@ -448,37 +457,52 @@ class App(tk.Tk):
 
         # زر الحفظ المباشر
         self.save_edit_btn = tk.Button(act_bar, text="💾 حفظ التعديل", bg=EMERALD, fg="white", relief="flat",
-                                       font=("Segoe UI", 9, "bold"), padx=12, pady=4, cursor="hand2",
+                                       font=("Segoe UI", 9, "bold"), padx=10, pady=4, cursor="hand2",
                                        command=self.save_current_edit)
-        self.save_edit_btn.pack(side="right", padx=3)
+        self.save_edit_btn.pack(side="right", padx=2)
 
         # زر الترجمة للعربية
         self.translate_btn = tk.Button(act_bar, text="🌐 ترجمة للعربية", bg="#0284c7", fg="white", relief="flat",
-                                       font=("Segoe UI", 9, "bold"), padx=12, pady=4, cursor="hand2",
+                                       font=("Segoe UI", 9, "bold"), padx=10, pady=4, cursor="hand2",
                                        command=self.toggle_translate)
-        self.translate_btn.pack(side="right", padx=3)
+        self.translate_btn.pack(side="right", padx=2)
 
         # زر التحسين بالذكاء الاصطناعي
         self.enhance_btn = tk.Button(act_bar, text="✨ تحسين بالذكاء", bg=PURPLE, fg="white", relief="flat",
-                                     font=("Segoe UI", 9, "bold"), padx=12, pady=4, cursor="hand2",
+                                     font=("Segoe UI", 9, "bold"), padx=10, pady=4, cursor="hand2",
                                      command=self.open_enhance_dialog)
-        self.enhance_btn.pack(side="right", padx=3)
+        self.enhance_btn.pack(side="right", padx=2)
+
+        # زر التشغيل في ChatGPT
+        tk.Button(act_bar, text="⚡ ChatGPT", bg="#10a37f", fg="white", relief="flat",
+                  font=("Segoe UI", 9, "bold"), padx=8, pady=4, cursor="hand2",
+                  command=lambda: self.launch_in_web_ai("chatgpt")).pack(side="right", padx=2)
+
+        # زر التشغيل في Claude
+        tk.Button(act_bar, text="🟠 Claude", bg="#d97706", fg="white", relief="flat",
+                  font=("Segoe UI", 9, "bold"), padx=8, pady=4, cursor="hand2",
+                  command=lambda: self.launch_in_web_ai("claude")).pack(side="right", padx=2)
+
+        # زر التشغيل في Gemini
+        tk.Button(act_bar, text="🔷 Gemini", bg="#2563eb", fg="white", relief="flat",
+                  font=("Segoe UI", 9, "bold"), padx=8, pady=4, cursor="hand2",
+                  command=lambda: self.launch_in_web_ai("gemini")).pack(side="right", padx=2)
 
         # زر النسخ
         tk.Button(act_bar, text="📋 نسخ", bg="#f1f5f9", fg=TEXT_MAIN, relief="flat",
-                  font=("Segoe UI", 9), padx=10, pady=4, cursor="hand2",
-                  command=self.copy_current_prompt).pack(side="right", padx=3)
+                  font=("Segoe UI", 9), padx=8, pady=4, cursor="hand2",
+                  command=self.copy_current_prompt).pack(side="right", padx=2)
 
         # زر المفضلة
         self.fav_btn = tk.Button(act_bar, text="★ مفضلة", bg="#f1f5f9", fg=TEXT_MAIN, relief="flat",
-                                 font=("Segoe UI", 9), padx=10, pady=4, cursor="hand2",
+                                 font=("Segoe UI", 9), padx=8, pady=4, cursor="hand2",
                                  command=self.toggle_fav)
-        self.fav_btn.pack(side="right", padx=3)
+        self.fav_btn.pack(side="right", padx=2)
 
         # زر الحذف
         tk.Button(act_bar, text="🗑️ حذف", bg="#fee2e2", fg="#dc2626", relief="flat",
-                  font=("Segoe UI", 9), padx=8, pady=4, cursor="hand2",
-                  command=self.delete_current_prompt).pack(side="left", padx=3)
+                  font=("Segoe UI", 9), padx=6, pady=4, cursor="hand2",
+                  command=self.delete_current_prompt).pack(side="left", padx=2)
 
         # تبويبات اللوحة (Tabs Notebook)
         self.notebook = ttk.Notebook(parent)
@@ -858,6 +882,32 @@ class App(tk.Tk):
 
         pc.save_store_async(self.store)
         self.refresh_list()
+
+    def launch_in_web_ai(self, provider: str):
+        """نسخ نص البرومبت تلقائياً وفتح واجهة الذكاء الاصطناعي في المتصفح."""
+        if not self.current_prompt:
+            messagebox.showinfo("تنبيه", "اختر برومبت من القائمة أولاً.", parent=self)
+            return
+
+        txt = self.prompt_text_widget.get("1.0", "end").strip()
+        if not txt:
+            txt = self.current_prompt.get("prompt", "")
+
+        # نسخ إلى الحافظة
+        self.clipboard_clear()
+        self.clipboard_append(txt)
+
+        urls = {
+            "chatgpt": "https://chatgpt.com/",
+            "claude": "https://claude.ai/new",
+            "gemini": "https://gemini.google.com/app",
+        }
+        target_url = urls.get(provider, "https://chatgpt.com/")
+        try:
+            webbrowser.open(target_url)
+            self.show_status(f"تم نسخ البرومبت وفتح {provider.capitalize()} في المتصفح ✓")
+        except Exception as e:
+            self.show_status(f"تم نسخ البرومبت بنجاح ✓")
 
     def copy_current_prompt(self):
         txt = self.prompt_text_widget.get("1.0", "end").strip()

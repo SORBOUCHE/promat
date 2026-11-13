@@ -9,6 +9,7 @@ import csv
 import hashlib
 import json
 import re
+import sqlite3
 import threading
 import time
 import urllib.error
@@ -19,6 +20,7 @@ from pathlib import Path
 BASE = Path(__file__).parent
 CSV_PATH = BASE / "prompts.csv"
 STORE_PATH = BASE / "prompts.json"
+DB_PATH = BASE / "prompts.db"
 TMP_PATH = BASE / "prompts_new.tmp.csv"
 
 RAW_URLS = [
@@ -831,8 +833,79 @@ def load_store() -> dict:
     return data
 
 
+def get_db_connection() -> sqlite3.Connection:
+    """الحصول على اتصال بقاعدة بيانات SQLite المهيأة."""
+    con = sqlite3.connect(DB_PATH)
+    con.row_factory = sqlite3.Row
+    return con
+
+
+def sync_db_from_store(store: dict) -> None:
+    """مزامنة متجر البرومات مع قاعدة بيانات SQLite وفهرس البحث FTS5."""
+    try:
+        con = get_db_connection()
+        cur = con.cursor()
+        cur.execute('''
+        CREATE TABLE IF NOT EXISTS prompts (
+            key TEXT PRIMARY KEY,
+            act TEXT NOT NULL,
+            prompt TEXT NOT NULL,
+            category TEXT,
+            type TEXT,
+            for_devs INTEGER,
+            builtin INTEGER,
+            new INTEGER,
+            added INTEGER,
+            world_class INTEGER DEFAULT 0
+        )
+        ''')
+        cur.execute('''
+        CREATE VIRTUAL TABLE IF NOT EXISTS prompts_fts USING fts5(
+            key UNINDEXED,
+            act,
+            prompt,
+            category,
+            content='prompts',
+            content_rowid='rowid'
+        )
+        ''')
+        cur.execute('''
+        CREATE TABLE IF NOT EXISTS favorites (
+            key TEXT PRIMARY KEY
+        )
+        ''')
+        cur.execute('DELETE FROM prompts')
+        cur.execute('DELETE FROM favorites')
+        cur.execute('DELETE FROM prompts_fts')
+
+        for p in store.get("prompts", []):
+            cur.execute('''
+            INSERT OR REPLACE INTO prompts (key, act, prompt, category, type, for_devs, builtin, new, added, world_class)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                p.get("key"),
+                p.get("act", ""),
+                p.get("prompt", ""),
+                p.get("category", "أخرى"),
+                p.get("type", "TEXT"),
+                1 if p.get("for_devs") else 0,
+                1 if p.get("builtin") else 0,
+                1 if p.get("new") else 0,
+                p.get("added", 0),
+                1 if p.get("world_class") else 0
+            ))
+
+        for fav in store.get("favorites", []):
+            cur.execute('INSERT OR IGNORE INTO favorites (key) VALUES (?)', (fav,))
+
+        con.commit()
+        con.close()
+    except Exception as e:
+        pass
+
+
 def save_store_sync(store: dict) -> None:
-    """حفظ المتجر بأمان وبشكل فوري إلى ملف JSON."""
+    """حفظ المتجر بأمان وبشكل فوري إلى ملف JSON وقاعدة بيانات SQLite."""
     data = {
         "favorites": store.get("favorites", []),
         "prompts": [{k: p.get(k) for k in KEEP_KEYS if k in p} for p in store.get("prompts", [])],
@@ -841,6 +914,8 @@ def save_store_sync(store: dict) -> None:
     tmp_out = STORE_PATH.with_suffix(".tmp.json")
     tmp_out.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     tmp_out.replace(STORE_PATH)
+    # تحديث SQLite تلقائياً
+    sync_db_from_store(store)
 
 
 def save_store_async(store: dict, on_done=None) -> None:
